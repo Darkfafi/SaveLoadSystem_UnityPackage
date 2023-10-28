@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 using UnityEditor;
 using UnityEngine;
@@ -14,9 +13,9 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 		[Flags]
 		public enum CorruptionState
 		{
-			None = 1,
-			Warning = 2,
-			Error = 4
+			None		= 1 << 0,
+			Warning		= 1 << 1,
+			Error		= 1 << 2,
 		}
 
 		// Current Display Variables
@@ -115,6 +114,7 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 			window.titleContent = new GUIContent("Storage Inspector");
 			window.Show();
 			window.Focus();
+			window._pathInputValue = EditorPrefs.GetString(EditorMenu.VALIDATE_STORAGE_LOCATION_PREF, string.Empty);
 			_currentlyOpenStorageInspector = window;
 			return window;
 		}

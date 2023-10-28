@@ -8,23 +8,25 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 	{
 		public const string BASE_ROUTE = "Storage/";
 
-		private const string AUTO_VALIDATE_STORAGE_PREF = "EditorMenu_AutoValidateStorage";
-		private const string VALIDATE_STORAGE_LOCATION_PREF = "EditorMenu_Location_ValidateStorage";
+		public const string AUTO_VALIDATE_STORAGE_PREF = "EditorMenu_AutoValidateStorage";
+		public const string VALIDATE_STORAGE_LOCATION_PREF = "EditorMenu_Location_ValidateStorage";
 
 		[InitializeOnLoadMethod]
 		public static void AutoValidateStorage()
 		{
-			if(!EditorPrefs.HasKey(VALIDATE_STORAGE_LOCATION_PREF))
+			if (!EditorPrefs.HasKey(VALIDATE_STORAGE_LOCATION_PREF))
 			{
 				SetValidateStorageLocation();
 			}
-			else if(ShouldRunAutoStorageValidation())
+			else if (ShouldRunAutoStorageValidation())
 			{
 				ValidateStorage(StorageInspectorEditor.CorruptionState.Warning | StorageInspectorEditor.CorruptionState.Error);
 			}
 		}
 
-		[MenuItem(BASE_ROUTE + "Toggle Auto Storage Validation", priority = 200)]
+		[MenuItem(BASE_ROUTE + "/", priority = 201)]
+		public static void TurnXAutoValidationSeparator() { } // Empty method for the separator
+
 		[MenuItem(BASE_ROUTE + "Toggle Auto Storage Validation/ON", priority = 200)]
 		public static void TurnOnAutoValidateStorage()
 		{
@@ -86,7 +88,7 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 
 		private static void ValidateStorage(StorageInspectorEditor.CorruptionState corruptionStateOpenTriggers)
 		{
-			switch(StorageInspectorEditor.ValidateStorage(GetStorageLocation(), Storage.EncodingType.Base64, corruptionStateOpenTriggers))
+			switch (StorageInspectorEditor.ValidateStorage(GetStorageLocation(), Storage.EncodingType.Base64, corruptionStateOpenTriggers))
 			{
 				case StorageInspectorEditor.CorruptionState.Error:
 					Debug.LogError("Storage Contains an Error!");
@@ -119,7 +121,7 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 			protected void OnGUI()
 			{
 				_currentValue = EditorGUILayout.TextField(_currentValue);
-				if(GUILayout.Button("Submit"))
+				if (GUILayout.Button("Submit"))
 				{
 					Close();
 				}
