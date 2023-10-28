@@ -1,0 +1,20 @@
+{
+  "name": "com.rasofiagames.saveloadsystem",
+  "version": "1.0.0",
+  "displayName": "SaveLoadSystem",
+  "description": "SaveLoadSystem is a simple serialization and deserialization system with automated deserialization mechanics",
+  "unity": "2018.3",
+  "unityRelease": "0b5",
+  "keywords": [
+    "SaveLoadSystem",
+    "Serialization",
+    "Deserialization",
+    "Storage"
+  ],
+  "author": {
+    "name": "Rasofia Games",
+    "email": "contact@rasofiagames.com",
+    "url": "http://rasofiagames.com"
+  },
+  "type": "tool"
+}
