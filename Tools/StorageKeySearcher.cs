@@ -25,8 +25,9 @@ namespace RasofiaGames.SaveLoadSystem.Internal
 
 			while(type != null)
 			{
-				// Check if the class is marked with the StorageKeysHolder attribute
 				fieldList.AddRange(type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance));
+				
+				// Check if the class is marked with the StorageKeysHolder attribute
 				if(!type.IsDefined(typeof(StorageKeysHolderAttribute), true))
 				{
 					type = type.BaseType;

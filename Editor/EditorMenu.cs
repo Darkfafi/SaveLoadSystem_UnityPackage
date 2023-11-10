@@ -45,7 +45,7 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 			InputWindow.OpenWindow(GetStorageLocation(), (newLocation) =>
 			{
 				SetStorageLocation(newLocation);
-			});
+			}, titleLabel: "Validate Storage Location", buttonLabel: null);
 		}
 
 		[MenuItem(BASE_ROUTE + "Toggle Auto Storage Validation/ON", validate = true)]
@@ -106,13 +106,15 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 		{
 			private string _currentValue;
 			private Action<string> _closeCallback;
+			private string _buttonLabel = null;
 
-			public static InputWindow OpenWindow(string currentValue, Action<string> closeCallback)
+			public static InputWindow OpenWindow(string currentValue, Action<string> closeCallback, string titleLabel = null, string buttonLabel = null)
 			{
 				InputWindow window = GetWindow<InputWindow>();
-				window.titleContent = new GUIContent("Input Field");
+				window.titleContent = new GUIContent(string.IsNullOrEmpty(titleLabel) ? "Input Field" : titleLabel);
 				window.Show();
 				window.Focus();
+				window._buttonLabel = buttonLabel;
 				window._currentValue = currentValue;
 				window._closeCallback = closeCallback;
 				return window;
@@ -121,7 +123,7 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 			protected void OnGUI()
 			{
 				_currentValue = EditorGUILayout.TextField(_currentValue);
-				if (GUILayout.Button("Submit"))
+				if (GUILayout.Button(string.IsNullOrEmpty(_buttonLabel) ? "Submit" : _buttonLabel))
 				{
 					Close();
 				}
