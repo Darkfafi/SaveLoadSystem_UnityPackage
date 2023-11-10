@@ -19,14 +19,35 @@ namespace RasofiaGames.SaveLoadSystem.Internal
 			return entries;
 		}
 
+		private static FieldInfo[] GetFieldsIncludingBaseClasses(Type type)
+		{
+			List<FieldInfo> fieldList = new List<FieldInfo>();
+
+			while(type != null)
+			{
+				// Check if the class is marked with the StorageKeysHolder attribute
+				fieldList.AddRange(type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance));
+				if(!type.IsDefined(typeof(StorageKeysHolderAttribute), true))
+				{
+					type = type.BaseType;
+				}
+				else
+				{
+					break;
+				}	
+			}
+
+			return fieldList.ToArray();
+		}
+
 		public static Dictionary<string, StorageKeyEntry> GetKeyEntries(Type saveableType)
 		{
 			if(saveableType == null)
 				return new Dictionary<string, StorageKeyEntry>();
 
-			FieldInfo[] fields = saveableType.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance);
+			FieldInfo[] fields = GetFieldsIncludingBaseClasses(saveableType);
 			Dictionary<string, StorageKeyEntry> keyEntries = new Dictionary<string, StorageKeyEntry>();
-
+			
 			// Add keys of the saveable itself
 			foreach(FieldInfo fInfo in fields)
 			{
