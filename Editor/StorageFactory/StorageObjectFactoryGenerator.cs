@@ -208,7 +208,7 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 
 						bool isConstructorLoader = HasLoaderConstructor(switchItemPair.Key);
 
-						lineStringBuilder.AppendLine($"{Consts.Tabs(5)} {(isConstructorLoader ? Consts.SAVEABLE_TYPE : Consts.SAVEABLE_WITHOUT_PARAM_TYPE)} {variableName} {Consts.ASSIGN_CHAR} {Consts.NEW} {switchItemPair.Key.FullName}({(isConstructorLoader ? Consts.PARAM_LOADER : string.Empty)});");
+						lineStringBuilder.AppendLine($"{Consts.Tabs(5)} {(isConstructorLoader ? Consts.SAVEABLE_TYPE : Consts.SAVEABLE_WITHOUT_PARAM_TYPE)} {variableName} {Consts.ASSIGN_CHAR} {Consts.NEW} {Consts.TypeToClassPathString(switchItemPair.Key)}({(isConstructorLoader ? Consts.PARAM_LOADER : string.Empty)});");
 
 						if(!isConstructorLoader)
 						{
@@ -288,7 +288,12 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 
 			public static string TypeToTypeOfString(Type type)
 			{
-				return string.Format("typeof({0})", type.FullName);
+				return string.Format("typeof({0})", TypeToClassPathString(type));
+			}
+
+			public static string TypeToClassPathString(Type type)
+			{
+				return type.FullName.Replace("+", ".");
 			}
 
 			public static string ULongToString(ulong value)
