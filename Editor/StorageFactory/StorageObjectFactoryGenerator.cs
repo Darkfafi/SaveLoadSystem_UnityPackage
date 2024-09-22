@@ -58,7 +58,6 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 
 				foreach(string line in File.ReadLines(GetPathFull()))
 				{
-
 					string trimmedLine = line.Trim();
 					string[] varToAssignmentSplitItems = trimmedLine.Split(Consts.ASSIGN_CHAR);
 
@@ -93,42 +92,32 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 						// Identify Assembly (before identifying type)
 						if(currentTypeAssembly == null)
 						{
-							if(trimmedLine.StartsWith(Consts.COMMENT_STRING))
+							if(TryGetCommentValue(trimmedLine, Consts.ASSEMBLY_PREFIX, out string assemblyStringValue))
 							{
-								string assemblyStringValue = trimmedLine.Remove(0, Consts.COMMENT_STRING.Length).Trim();
-								if(assemblyStringValue.StartsWith(Consts.ASSEMBLY_PREFIX))
+								try
 								{
-									assemblyStringValue = assemblyStringValue.Remove(0, Consts.ASSEMBLY_PREFIX.Length).Trim();
-									try
-									{
-										currentTypeAssembly = Assembly.Load(assemblyStringValue);
-									}
-									catch
-									{
-										Debug.LogError($"Could not load Assembly {assemblyStringValue} for ID {holdingID.Value}");
-										holdingID = null;
-									}
+									currentTypeAssembly = Assembly.Load(assemblyStringValue);
+								}
+								catch
+								{
+									Debug.LogError($"Could not load Assembly {assemblyStringValue} for ID {holdingID.Value}");
+									holdingID = null;
 								}
 							}
 						}
 						else
 						{
 							// Identify class type (after assembly identification)
-							if(trimmedLine.Contains(Consts.ASSIGN_NEW))
+							if(TryGetCommentValue(trimmedLine, Consts.FULL_CLASS_NAME_PREFIX, out string fullClassName))
 							{
-								string[] classAssignItems = trimmedLine.Split(new string[] { Consts.ASSIGN_NEW }, StringSplitOptions.None);
-								string className = classAssignItems[1];
-								int endClassNameIndex = className.IndexOf('(');
-								className = className.Remove(endClassNameIndex, className.Length - endClassNameIndex).Trim();
-
 								try
 								{
-									Type classType = currentTypeAssembly.GetType(className, true);
+									Type classType = currentTypeAssembly.GetType(fullClassName, true);
 									typeToId.Add(classType, (holdingID.Value, currentTypeAssembly));
 								}
 								catch
 								{
-									Debug.LogError($"Could not create type from ClassName {className} inside assembly {currentTypeAssembly.FullName}");
+									Debug.LogError($"Could not create type from ClassName {fullClassName} inside assembly {currentTypeAssembly.FullName}");
 								}
 							}
 
@@ -205,6 +194,7 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 
 						lineStringBuilder.AppendLine($"{Consts.Tabs(4)} case {switchItemPair.Value.id}:");
 						lineStringBuilder.AppendLine($"{Consts.Tabs(5)} {Consts.COMMENT_ASSEMBLY_PREFIX} {switchItemPair.Value.assembly.FullName}:");
+						lineStringBuilder.AppendLine($"{Consts.Tabs(5)} {Consts.COMMENT_FULL_CLASS_NAME_PREFIX} {switchItemPair.Key.FullName}");
 
 						bool isConstructorLoader = HasLoaderConstructor(switchItemPair.Key);
 
@@ -238,6 +228,22 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 			EditorGUIUtility.PingObject(asset);
 		}
 
+		private static bool TryGetCommentValue(string trimmedLine, string prefix, out string value)
+		{
+			if(trimmedLine.StartsWith(Consts.COMMENT_STRING))
+			{
+				value = trimmedLine.Remove(0, Consts.COMMENT_STRING.Length).Trim();
+				if(value.StartsWith(prefix))
+				{
+					value = value.Remove(0, prefix.Length).Trim();
+					return true;
+				}
+			}
+
+			value = default;
+			return false;
+		}
+
 		private static bool HasLoaderConstructor(Type type)
 		{
 			return type.GetConstructors().Any(constructor =>
@@ -269,6 +275,9 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 			public const string COMMENT_STRING = "//";
 			public const string ASSEMBLY_PREFIX = "Assembly:";
 			public const string COMMENT_ASSEMBLY_PREFIX = COMMENT_STRING + ASSEMBLY_PREFIX;
+
+			public const string FULL_CLASS_NAME_PREFIX = "Class FullName:";
+			public const string COMMENT_FULL_CLASS_NAME_PREFIX = COMMENT_STRING + FULL_CLASS_NAME_PREFIX;
 
 			public const string NEW = "new";
 			public const string RETURN = "return";
