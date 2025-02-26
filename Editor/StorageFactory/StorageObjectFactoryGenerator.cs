@@ -158,6 +158,10 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 						idMilestone++;
 						newCount++;
 					}
+					else
+					{
+						Debug.LogError($"Can't add {newSaveableType} for it is missing an {nameof(IStorageLoader)} constructor or {nameof(ISaveableLoad)} implementation");
+					}
 				}
 			}
 

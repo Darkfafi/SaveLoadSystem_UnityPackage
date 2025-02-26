@@ -13,9 +13,9 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 		[Flags]
 		public enum CorruptionState
 		{
-			None		= 1 << 0,
-			Warning		= 1 << 1,
-			Error		= 1 << 2,
+			None = 1 << 0,
+			Warning = 1 << 1,
+			Error = 1 << 2,
 		}
 
 		// Current Display Variables
@@ -220,47 +220,6 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 
 			public bool IsEmpty => ValKeys.Length == 0 && RefsKeys.Length == 0;
 
-			public override string TitleInfo
-			{
-				get
-				{
-
-					CorruptionState worstState = CorruptionState.None;
-					string info = string.Empty;
-					List<BaseKeyItem> keyItems = new List<BaseKeyItem>(ValKeys);
-					keyItems.AddRange(RefsKeys);
-
-					for(int i = 0; i < keyItems.Count; i++)
-					{
-						BaseKeyItem item = keyItems[i];
-						if(worstState < item.CorruptionState && !string.IsNullOrEmpty(item.TitleInfo))
-						{
-							worstState = item.CorruptionState;
-							info = item.TitleInfo;
-						}
-					}
-
-					StorageKeyEntry[] missingKeys = GetMissingKeyEntries();
-					if(missingKeys.Length > 0 && worstState != CorruptionState.Error)
-					{
-						StringBuilder messageBuilder = new StringBuilder();
-						messageBuilder.AppendLine("The following keys are expected but not found:");
-						for(int i = 0; i < missingKeys.Length; i++)
-						{
-							messageBuilder.AppendLine(string.Concat("* ", missingKeys[i].StorageKey));
-						}
-						return messageBuilder.ToString();
-					}
-
-					if(!string.IsNullOrEmpty(info))
-					{
-						return info;
-					}
-
-					return base.TitleInfo;
-				}
-			}
-
 			public override CorruptionState CorruptionState
 			{
 				get
@@ -327,6 +286,43 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 				}
 			}
 
+			protected override string GetTitleInfo()
+			{
+				CorruptionState worstState = CorruptionState.None;
+				string info = string.Empty;
+				List<BaseKeyItem> keyItems = new List<BaseKeyItem>(ValKeys);
+				keyItems.AddRange(RefsKeys);
+
+				for(int i = 0; i < keyItems.Count; i++)
+				{
+					BaseKeyItem item = keyItems[i];
+					if(worstState < item.CorruptionState && !string.IsNullOrEmpty(item.TitleInfo))
+					{
+						worstState = item.CorruptionState;
+						info = item.Title + " -> " + item.TitleInfo;
+					}
+				}
+
+				StorageKeyEntry[] missingKeys = GetMissingKeyEntries();
+				if(missingKeys.Length > 0 && worstState != CorruptionState.Error)
+				{
+					StringBuilder messageBuilder = new StringBuilder();
+					messageBuilder.AppendLine("The following keys are expected but not found:");
+					for(int i = 0; i < missingKeys.Length; i++)
+					{
+						messageBuilder.AppendLine(string.Concat("* ", missingKeys[i].StorageKey));
+					}
+					info = messageBuilder.ToString();
+				}
+
+				if(!string.IsNullOrEmpty(info))
+				{
+					return info;
+				}
+
+				return string.Empty;
+			}
+
 			private StorageKeyEntry[] GetMissingKeyEntries()
 			{
 				List<StorageKeyEntry> missingEntries = new List<StorageKeyEntry>(KeyEntries.Select(x => x.Value).Where(x => !x.IsOptional));
@@ -382,6 +378,11 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 			{
 				StorageItem.RenderGUI(layer + 1);
 			}
+
+			protected override string GetTitleInfo()
+			{
+				return StorageItem.TitleInfo;
+			}
 		}
 
 		private class RefItem : BaseItem
@@ -419,6 +420,11 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 
 			public string GetInfoText()
 			{
+				if(StorageItem.CorruptionState > CorruptionState.None && !string.IsNullOrEmpty(StorageItem.TitleInfo))
+				{
+					return StorageItem.TitleInfo;
+				}
+
 				if(_keyEntry.HasDuplicate)
 				{
 					return string.Format(KEY_HAS_DUPLICATE_F, _keyEntry.StorageKey);
@@ -687,25 +693,6 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 				}
 			}
 
-			public override string TitleInfo
-			{
-				get
-				{
-					string infoText = string.Empty;
-					if(RefItems.Length > 0)
-					{
-						infoText = RefItems[0].GetInfoText();
-					}
-
-					if(string.IsNullOrEmpty(infoText))
-					{
-						return base.TitleInfo;
-					}
-
-					return infoText;
-				}
-			}
-
 			public RefsKeyItem(StorageKeyEntry keyEntry, EditableRefValue[] refs) : base(keyEntry.StorageKey)
 			{
 				RefItems = new RefItem[refs.Length];
@@ -731,6 +718,33 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 					RefItems[0].RenderGUI(layer);
 				}
 			}
+
+			protected override string GetTitleInfo()
+			{
+				CorruptionState worstState = CorruptionState.None;
+				string infoText = string.Empty;
+
+				if(RefItems.Length > 0)
+				{
+					for(int i = 0; i < RefItems.Length; i++)
+					{
+						var refItem = RefItems[i];
+						string refInfoText = refItem.GetInfoText();
+						if(worstState < refItem.CorruptionState && !string.IsNullOrEmpty(refInfoText))
+						{
+							infoText = refInfoText;
+							worstState = refItem.CorruptionState;
+						}
+					}
+				}
+
+				if(!string.IsNullOrEmpty(infoText))
+				{
+					return infoText;
+				}
+
+				return string.Empty;
+			}
 		}
 
 		private class ValKeyItem : BaseKeyItem
@@ -748,17 +762,14 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 				}
 			}
 
-			public override string TitleInfo
+			protected override string GetTitleInfo()
 			{
-				get
+				ValItem.GetCorruptStateWithInfo(out _, out string info);
+				if(string.IsNullOrEmpty(info))
 				{
-					ValItem.GetCorruptStateWithInfo(out _, out string info);
-					if(string.IsNullOrEmpty(info))
-					{
-						return base.TitleInfo;
-					}
-					return info;
+					return base.TitleInfo;
 				}
+				return info;
 			}
 
 			public ValKeyItem(StorageKeyEntry keyEntry, SaveableValueSection value) : base(keyEntry.StorageKey)
@@ -796,13 +807,22 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 				get; private set;
 			}
 
-			public virtual string TitleInfo
+			public string TitleInfo
 			{
 				get
 				{
-					return string.Empty;
+					if(_hasCachedTitleInfo)
+					{
+						return _cachedTitleInfo;
+					}
+
+					_hasCachedTitleInfo = true;
+					return _cachedTitleInfo = GetTitleInfo();
 				}
 			}
+
+			private bool _hasCachedTitleInfo;
+			private string _cachedTitleInfo;
 
 			public BaseFoldoutItem(string key, string title, bool defaultIsOpenValue) : this(key, defaultIsOpenValue)
 			{
@@ -815,33 +835,41 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 				IsOpen = defaultIsOpenValue;
 			}
 
+			private GUIContent _titleContent = null;
+			private GUIStyle _foldoutStyle = null;
+
+			protected abstract string GetTitleInfo();
+
 			public override void RenderGUI(int layer)
 			{
 				GUILayout.BeginHorizontal();
 				GUILayout.Space(layer * 5);
 
-				GUIStyle foldoutStyle = new GUIStyle(EditorStyles.foldout);
-
-				Color? color = GetCorruptionStateColor(CorruptionState);
-
-				if(color.HasValue)
+				if(_titleContent == null)
 				{
-					foldoutStyle.normal.textColor = color.Value;
+					string titleValue = string.Concat(Title, " ", GetCorruptionStateIcon(CorruptionState));
+					Color? titleColor = GetCorruptionStateColor(CorruptionState);
+
+					if(string.IsNullOrEmpty(TitleInfo))
+					{
+						_titleContent = new GUIContent(titleValue);
+					}
+					else
+					{
+						_titleContent = new GUIContent(titleValue, TitleInfo);
+					}
+
+					_foldoutStyle = new GUIStyle(EditorStyles.foldout);
+
+					if(titleColor.HasValue)
+					{
+						_foldoutStyle.normal.textColor = _foldoutStyle.onNormal.textColor = 
+						_foldoutStyle.focused.textColor = _foldoutStyle.onFocused.textColor =
+						_foldoutStyle.active.textColor = _foldoutStyle.onActive.textColor = titleColor.Value;
+					}
 				}
 
-				GUIContent titleContent;
-				string titleValue = string.Concat(Title, " ", GetCorruptionStateIcon(CorruptionState));
-
-				if(string.IsNullOrEmpty(TitleInfo))
-				{
-					titleContent = new GUIContent(titleValue);
-				}
-				else
-				{
-					titleContent = new GUIContent(titleValue, TitleInfo);
-				}
-
-				IsOpen = EditorGUILayout.Foldout(IsOpen, titleContent, foldoutStyle);
+				IsOpen = EditorGUILayout.Foldout(IsOpen, _titleContent, _foldoutStyle);
 				GUILayout.EndHorizontal();
 
 				if(IsOpen)
