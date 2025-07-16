@@ -179,27 +179,10 @@ namespace RasofiaGames.SaveLoadSystem
 							storageDictForRef.SaveValue(STORAGE_REFERENCE_TYPE_ID_ULONG_KEY, _storageObjectFactory.GetIdForSaveable(referenceInstance.GetType()));
 							referenceInstance.Save(storageDictForRef);
 
-							if(pair.Value.TryGetValue(refID, out StorageDictionary oldData))
+							if (refID != ROOT_SAVE_DATA_CAPSULE_REFERENCE_ID)
 							{
-								foreach(var valueKey in oldData.GetValueStorageKeys())
-								{
-									if(oldData.ShouldKeepValueKey(valueKey) && !storageDictForRef.HasValueKey(valueKey))
-									{
-										storageDictForRef.SetValue(valueKey, oldData.GetValueSection(valueKey).GetValue());
-									}
-								}
-
-								foreach(var refKey in oldData.GetRefStorageKeys())
-								{
-									if(oldData.ShouldKeepRefKey(refKey) && !storageDictForRef.HasRefKey(refKey))
-									{
-										storageDictForRef.SetValueRef(refKey, oldData.GetValueRef(refKey));
-									}
-								}
+								_alreadySavedReferencesToOriginCapsuleMap.Add(refID, pair.Key);	
 							}
-
-							if(refID != ROOT_SAVE_DATA_CAPSULE_REFERENCE_ID)
-								_alreadySavedReferencesToOriginCapsuleMap.Add(refID, pair.Key);
 						}
 					};
 
@@ -323,7 +306,7 @@ namespace RasofiaGames.SaveLoadSystem
 		{
 			foreach(var capsuleMapItem in _cachedStorageCapsules)
 			{
-				if(storageCapsuleIDs != null && storageCapsuleIDs.Length > 0 && Array.IndexOf(storageCapsuleIDs, capsuleMapItem.Key) >= 0)
+				if(storageCapsuleIDs != null && storageCapsuleIDs.Length > 0 && Array.IndexOf(storageCapsuleIDs, capsuleMapItem.Key.ID) < 0)
 					continue;
 
 				if(capsuleMapItem.Value != null)
