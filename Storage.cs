@@ -115,7 +115,7 @@ namespace RasofiaGames.SaveLoadSystem
 						}
 						else if (storage.LoadValue(STORAGE_REFERENCE_TYPE_ID_ULONG_KEY, out ulong classTypeId))
 						{
-							ISaveable referenceInstance = _storageObjectFactory.LoadSaveableObject(classTypeId, storage);
+							ISaveable referenceInstance = _storageObjectFactory.CreateSaveableObject(classTypeId);
 							channel.Internal_Load(storage);
 							ActiveRefHandler.SetReferenceReady(referenceInstance, id);
 							_allLoadedReferences.Add(referenceInstance);

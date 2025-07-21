@@ -4,7 +4,7 @@ namespace RasofiaGames.SaveLoadSystem.Internal
 {
 	public interface IStorageObjectFactory
 	{
-		ISaveable LoadSaveableObject(ulong id, IStorageLoader loader);
+		ISaveable CreateSaveableObject(ulong id);
 		Type GetTypeForId(ulong id);
 		ulong GetIdForSaveable<T>() where T : ISaveable;
 		ulong GetIdForSaveable(Type type);

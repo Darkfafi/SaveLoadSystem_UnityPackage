@@ -16,7 +16,7 @@ namespace RasofiaGames.SaveLoadSystem.Internal
 			[TYPE_TO_ID_MAP_ITEMS]
 		};
 
-		public ISaveable LoadSaveableObject(ulong id, IStorageLoader loader)
+		public ISaveable CreateSaveableObject(ulong id)
 		{
 			switch(id)
 			{
