@@ -9,8 +9,13 @@ namespace RasofiaGames.SaveLoadSystem
 	[StorageKeysHolder(typeof(ISaveable))]
 	public class StorageDictionary : ValueStorageDictionary, IStorageSaver, IStorageLoader, IStorageDictionaryEditor
 	{
+		[StorageKey(typeof(string[]), true)]
+		public const string REF_KEYS_TO_KEEP_KEY = "RESERVED_REF_KEYS_TO_KEEP_KEY_RESERVED";
+
 		private Dictionary<string, object> _keyToReferenceID;
 		private IStorageAccess _storageAccess;
+
+		private List<string> _keysToKeep = new List<string>();
 
 		public bool HasRefKey(string key)
 		{
@@ -28,6 +33,11 @@ namespace RasofiaGames.SaveLoadSystem
 			return new string[] { };
 		}
 
+		public bool ShouldKeepRefKey(string key)
+		{
+			return _keysToKeep.Contains(key);
+		}
+
 		public StorageDictionary(string parentStorageCapsuleID, IStorageAccess storageAccess) : base(parentStorageCapsuleID)
 		{
 			_storageAccess = storageAccess;
@@ -38,6 +48,12 @@ namespace RasofiaGames.SaveLoadSystem
 		{
 			_storageAccess = storageAccess;
 			_keyToReferenceID = loadedRefs;
+
+			SaveableValueSection keysToKeepSection = GetValueSection(REF_KEYS_TO_KEEP_KEY);
+			if(keysToKeepSection.IsValid)
+			{
+				_keysToKeep = new List<string>(SaveableArray.To<string>((SaveableArray)keysToKeepSection.GetValue(typeof(SaveableArray))));
+			}
 		}
 
 		void IStorageReferenceSaver.SaveRef<T>(string key, T value, bool allowNull)
@@ -50,6 +66,8 @@ namespace RasofiaGames.SaveLoadSystem
 			}
 
 			_keyToReferenceID.Add(key, _storageAccess.ActiveRefHandler.GetIdForReference(value));
+			_keysToKeep.Remove(key);
+			SetKeysToKeep();
 		}
 
 		void IStorageReferenceSaver.SaveRefs<T>(string key, T[] values, bool allowNull)
@@ -76,6 +94,8 @@ namespace RasofiaGames.SaveLoadSystem
 			}
 
 			_keyToReferenceID.Add(key, idsCollection);
+			_keysToKeep.Remove(key);
+			SetKeysToKeep();
 		}
 
 		bool IStorageReferenceLoader.LoadRef<T>(string key, StorageLoadHandler<T> refLoadedCallback)
@@ -171,11 +191,21 @@ namespace RasofiaGames.SaveLoadSystem
 		public void RemoveValueRef(string key)
 		{
 			_keyToReferenceID.Remove(key);
+
+			if(_keysToKeep.Contains(key))
+				_keysToKeep.Remove(key);
+
+			SetKeysToKeep();
 		}
 
 		public void SetValueRef(string key, EditableRefValue refValue)
 		{
 			_keyToReferenceID[key] = refValue.ReferenceID;
+
+			if(!_keysToKeep.Contains(key))
+				_keysToKeep.Add(key);
+
+			SetKeysToKeep();
 		}
 
 		public void SetValueRefs(string key, EditableRefValue[] refsValues)
@@ -189,7 +219,15 @@ namespace RasofiaGames.SaveLoadSystem
 					idsCollection += ",";
 				}
 			}
+
 			_keyToReferenceID[key] = idsCollection;
+
+			if (!_keysToKeep.Contains(key))
+			{
+				_keysToKeep.Add(key);
+			}
+
+			SetKeysToKeep();
 		}
 
 		public void RelocateValueRef(string currentKey, string newKey)
@@ -205,6 +243,11 @@ namespace RasofiaGames.SaveLoadSystem
 		public EditableRefValue RegisterNewRefInCapsule(Type referenceType)
 		{
 			return _storageAccess.RegisterNewRefInCapsule(ParentStorageCapsuleID, referenceType);
+		}
+
+		private void SetKeysToKeep()
+		{
+			SetValue(REF_KEYS_TO_KEEP_KEY, SaveableArray.From(_keysToKeep.ToArray()));
 		}
 	}
 }
