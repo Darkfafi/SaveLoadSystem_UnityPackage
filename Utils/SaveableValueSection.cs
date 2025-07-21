@@ -11,9 +11,11 @@ namespace RasofiaGames.SaveLoadSystem.Internal
 
 		public SaveableValueSection(object value, Type specifiedType = null)
 		{
-			if(specifiedType == null)
+			if (specifiedType == null)
+			{
 				specifiedType = value.GetType();
-
+			}
+			
 			ValueString = PrimitiveToValueParserUtility.ToJSON(value, specifiedType);
 			ValueType = specifiedType.AssemblyQualifiedName;
 		}

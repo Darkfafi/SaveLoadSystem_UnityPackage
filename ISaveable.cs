@@ -1,13 +1,60 @@
-﻿namespace RasofiaGames.SaveLoadSystem
+﻿using System;
+
+namespace RasofiaGames.SaveLoadSystem
 {
-	public interface ISaveableLoad : ISaveable
+	public interface ISaveable : IDisposable
 	{
-		void Load(IStorageLoader loader);
+		StorageChannel GetStorageChannel();
 	}
 
-	public interface ISaveable
+	public class StorageChannel : IDisposable
 	{
-		void Save(IStorageSaver saver);
-		void LoadingCompleted();
+		public delegate void SaveHandler(IStorageSaver saver);
+		public delegate void LoadHandler(IStorageLoader loader);
+		public delegate void LoadCompletedHandler();
+
+		private StorageDictionary _lastStorageDictionary = null;
+
+		private SaveHandler _saver = null;
+		private LoadHandler _loader = null;
+		private LoadCompletedHandler _loaded = null;
+
+		public StorageChannel(SaveHandler saver, LoadHandler loader, LoadCompletedHandler loaded = null)
+		{
+			_saver = saver;
+			_loader = loader;
+			_loaded = loaded;
+		}
+
+		internal void Internal_Save(StorageDictionary saver)
+		{
+			_lastStorageDictionary = saver;
+			_saver?.Invoke(saver);
+		}
+
+		internal void Internal_Load(StorageDictionary loader)
+		{
+			_lastStorageDictionary = loader;
+			_loader?.Invoke(loader);
+		}
+
+		internal void Internal_Loaded()
+		{
+			_loaded?.Invoke();
+		}
+
+		internal bool Internal_TryGetLastStorageDictionary(out StorageDictionary storageDictionary)
+		{
+			storageDictionary = _lastStorageDictionary;
+			return storageDictionary != null;
+		}
+
+		public void Dispose()
+		{
+			_saver = default;
+			_loader = default;
+			_loaded = default;
+			_lastStorageDictionary = default;
+		}
 	}
 }

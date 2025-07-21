@@ -211,10 +211,10 @@ namespace RasofiaGames.SaveLoadSystem
 		public void SetValueRefs(string key, EditableRefValue[] refsValues)
 		{
 			string idsCollection = "";
-			for(int i = 0, c = refsValues.Length; i < c; i++)
+			for (int i = 0, c = refsValues.Length; i < c; i++)
 			{
 				idsCollection += refsValues[i].ReferenceID;
-				if(i < c - 1)
+				if (i < c - 1)
 				{
 					idsCollection += ",";
 				}

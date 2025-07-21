@@ -45,6 +45,8 @@ namespace RasofiaGames.SaveLoadSystem
 		}
 
 		private Dictionary<IStorageCapsule, Dictionary<string, StorageDictionary>> _cachedStorageCapsules = new Dictionary<IStorageCapsule, Dictionary<string, StorageDictionary>>();
+		private Dictionary<IStorageCapsule, Dictionary<StorageDictionary, StorageChannel>> _cachedStorageChannels = new Dictionary<IStorageCapsule, Dictionary<StorageDictionary, StorageChannel>>();
+
 		private IStorageObjectFactory _storageObjectFactory;
 
 		public static string GetPathToStorageCapsule(string locationPath, IStorageCapsule capsule, bool addFileType)
@@ -69,7 +71,7 @@ namespace RasofiaGames.SaveLoadSystem
 			EncodingOption = encodingType;
 
 			_cachedStorageCapsules.Clear();
-			for(int i = 0, c = allStorageCapsules.Length; i < c; i++)
+			for (int i = 0, c = allStorageCapsules.Length; i < c; i++)
 			{
 				_cachedStorageCapsules.Add(allStorageCapsules[i], new Dictionary<string, StorageDictionary>());
 				RefreshCachedData(allStorageCapsules[i]);
@@ -78,14 +80,14 @@ namespace RasofiaGames.SaveLoadSystem
 
 		public void Load(params string[] storageCapsuleIDs)
 		{
-			using(ActiveRefHandler = new SaveableReferenceIdHandler())
+			using (ActiveRefHandler = new SaveableReferenceIdHandler())
 			{
 				RefreshCachedData(storageCapsuleIDs);
 
-				foreach(var capsuleToStorage in _cachedStorageCapsules)
+				foreach (var capsuleToStorage in _cachedStorageCapsules)
 				{
 
-					if(storageCapsuleIDs != null && storageCapsuleIDs.Length > 0 && Array.IndexOf(storageCapsuleIDs, capsuleToStorage.Key.ID) < 0)
+					if (storageCapsuleIDs != null && storageCapsuleIDs.Length > 0 && Array.IndexOf(storageCapsuleIDs, capsuleToStorage.Key.ID) < 0)
 						continue;
 
 					List<ISaveable> _allLoadedReferences = new List<ISaveable>();
@@ -93,37 +95,37 @@ namespace RasofiaGames.SaveLoadSystem
 
 					Action<string> referenceRequestedEventAction = (id) =>
 					{
-						if(_allLoadedReferenceIds.Contains(id))
+						if (_allLoadedReferenceIds.Contains(id))
 							return;
 
 						_allLoadedReferenceIds.Add(id);
 
-						if(!capsuleToStorage.Value.TryGetValue(id, out StorageDictionary storage))
+						if (!capsuleToStorage.Value.TryGetValue(id, out StorageDictionary storage))
 						{
 							storage = new StorageDictionary(capsuleToStorage.Key.ID, this);
 						}
 
-						if(id == ROOT_SAVE_DATA_CAPSULE_REFERENCE_ID)
+						StorageChannel channel = null;
+
+						if (id == ROOT_SAVE_DATA_CAPSULE_REFERENCE_ID)
 						{
-							capsuleToStorage.Key.Load(storage);
+							channel = capsuleToStorage.Key.GetStorageChannel();
+							channel.Internal_Load(storage);
 							_allLoadedReferences.Add(capsuleToStorage.Key);
 						}
-						else if(storage.LoadValue(STORAGE_REFERENCE_TYPE_ID_ULONG_KEY, out ulong classTypeId))
+						else if (storage.LoadValue(STORAGE_REFERENCE_TYPE_ID_ULONG_KEY, out ulong classTypeId))
 						{
 							ISaveable referenceInstance = _storageObjectFactory.LoadSaveableObject(classTypeId, storage);
+							channel.Internal_Load(storage);
 							ActiveRefHandler.SetReferenceReady(referenceInstance, id);
 							_allLoadedReferences.Add(referenceInstance);
 						}
-						else if(storage.LoadValue(STORAGE_REFERENCE_TYPE_STRING_KEY, out string classTypeFullName))
+						else if (storage.LoadValue(STORAGE_REFERENCE_TYPE_STRING_KEY, out string classTypeFullName))
 						{
 							Type referenceType = Type.GetType(classTypeFullName);
-							bool methodLoadInterface = typeof(ISaveableLoad).IsAssignableFrom(referenceType);
-							ISaveable referenceInstance = (methodLoadInterface ? Activator.CreateInstance(referenceType) : Activator.CreateInstance(referenceType, storage)) as ISaveable;
+							ISaveable referenceInstance = Activator.CreateInstance(referenceType) as ISaveable;
+							channel.Internal_Load(storage);
 							ActiveRefHandler.SetReferenceReady(referenceInstance, id);
-
-							if(methodLoadInterface)
-								((ISaveableLoad)referenceInstance).Load(storage);
-
 							_allLoadedReferences.Add(referenceInstance);
 						}
 						else
@@ -137,9 +139,10 @@ namespace RasofiaGames.SaveLoadSystem
 					ActiveRefHandler.LoadRemainingAsNull();
 					ActiveRefHandler.ReferenceRequestedEvent -= referenceRequestedEventAction;
 
-					for(int i = _allLoadedReferences.Count - 1; i >= 0; i--)
+					for (int i = _allLoadedReferences.Count - 1; i >= 0; i--)
 					{
-						_allLoadedReferences[i].LoadingCompleted();
+						StorageChannel channel = _allLoadedReferences[i].GetStorageChannel();
+						channel.Internal_Loaded();
 					}
 
 					_allLoadedReferences = null;
@@ -152,54 +155,64 @@ namespace RasofiaGames.SaveLoadSystem
 		{
 			Dictionary<IStorageCapsule, Dictionary<string, StorageDictionary>> buffer = new Dictionary<IStorageCapsule, Dictionary<string, StorageDictionary>>();
 			Dictionary<string, IStorageCapsule> _alreadySavedReferencesToOriginCapsuleMap = new Dictionary<string, IStorageCapsule>();
-			using(ActiveRefHandler = new SaveableReferenceIdHandler())
+			using (ActiveRefHandler = new SaveableReferenceIdHandler())
 			{
-				foreach(var pair in _cachedStorageCapsules)
+				foreach (var pair in _cachedStorageCapsules)
 				{
-					if(storageCapsuleIDs != null && storageCapsuleIDs.Length > 0 && Array.IndexOf(storageCapsuleIDs, pair.Key.ID) < 0)
+					if (storageCapsuleIDs != null && storageCapsuleIDs.Length > 0 && Array.IndexOf(storageCapsuleIDs, pair.Key.ID) < 0)
 						continue;
 
 					Dictionary<string, StorageDictionary> referencesSaved = new Dictionary<string, StorageDictionary>();
 
 					Action<string, ISaveable> refDetectedAction = (refID, referenceInstance) =>
 					{
-						if(_alreadySavedReferencesToOriginCapsuleMap.TryGetValue(refID, out IStorageCapsule holdingCapsule))
+						if (_alreadySavedReferencesToOriginCapsuleMap.TryGetValue(refID, out IStorageCapsule holdingCapsule))
 						{
-							if(holdingCapsule != pair.Key)
+							if (holdingCapsule != pair.Key)
 							{
 								throw new Exception(string.Format("Save aborted! Reference {0} saved in capsule {1} while capsule {2} is saving it now! Each capsule should not be saving cross references!", referenceInstance.ToString(), holdingCapsule.ID, pair.Key.ID));
 							}
 						}
 
-						if(!referencesSaved.ContainsKey(refID))
+						if (!referencesSaved.ContainsKey(refID))
 						{
 							StorageDictionary storageDictForRef = new StorageDictionary(pair.Key.ID, this);
 							referencesSaved.Add(refID, storageDictForRef);
 							storageDictForRef.SaveValue(STORAGE_REFERENCE_TYPE_STRING_KEY, referenceInstance.GetType().AssemblyQualifiedName);
 							storageDictForRef.SaveValue(STORAGE_REFERENCE_TYPE_ID_ULONG_KEY, _storageObjectFactory.GetIdForSaveable(referenceInstance.GetType()));
-							referenceInstance.Save(storageDictForRef);
 
-							if(pair.Value.TryGetValue(refID, out StorageDictionary oldData))
+							StorageChannel channel = referenceInstance.GetStorageChannel();
+
+							if (!channel.Internal_TryGetLastStorageDictionary(out StorageDictionary oldStorageData))
 							{
-								foreach(var valueKey in oldData.GetValueStorageKeys())
+								oldStorageData = null;
+							}
+
+							channel.Internal_Save(storageDictForRef);
+
+							if (oldStorageData != null)
+							{
+								foreach (var valueKey in oldStorageData.GetValueStorageKeys())
 								{
-									if(oldData.ShouldKeepValueKey(valueKey) && !storageDictForRef.HasValueKey(valueKey))
+									if (oldStorageData.ShouldKeepValueKey(valueKey) && !storageDictForRef.HasValueKey(valueKey))
 									{
-										storageDictForRef.SetValue(valueKey, oldData.GetValueSection(valueKey).GetValue());
+										storageDictForRef.SetValue(valueKey, oldStorageData.GetValueSection(valueKey).GetValue());
 									}
 								}
 
-								foreach(var refKey in oldData.GetRefStorageKeys())
+								foreach (var refKey in oldStorageData.GetRefStorageKeys())
 								{
-									if(oldData.ShouldKeepRefKey(refKey) && !storageDictForRef.HasRefKey(refKey))
+									if (oldStorageData.ShouldKeepRefKey(refKey) && !storageDictForRef.HasRefKey(refKey))
 									{
-										storageDictForRef.SetValueRef(refKey, oldData.GetValueRef(refKey));
+										storageDictForRef.SetValueRef(refKey, oldStorageData.GetValueRef(refKey));
 									}
 								}
 							}
 
-							if(refID != ROOT_SAVE_DATA_CAPSULE_REFERENCE_ID)
+							if (refID != ROOT_SAVE_DATA_CAPSULE_REFERENCE_ID)
+							{
 								_alreadySavedReferencesToOriginCapsuleMap.Add(refID, pair.Key);
+							}
 						}
 					};
 
@@ -211,20 +224,22 @@ namespace RasofiaGames.SaveLoadSystem
 				}
 			}
 
-			foreach(var pair in buffer)
+			foreach (var pair in buffer)
 			{
 				_cachedStorageCapsules[pair.Key] = pair.Value;
 			}
 
-			if(flushAfterSave)
+			if (flushAfterSave)
+			{
 				Flush();
+			}
 		}
 
 		public bool TryRead(string storageCapsuleID, out ReadStorageResult readStorageResult)
 		{
 			List<ReadStorageResult> storages = Read(new string[] { storageCapsuleID });
 
-			if(storages.Count > 0)
+			if (storages.Count > 0)
 			{
 				readStorageResult = storages[0];
 				return true;
@@ -240,29 +255,29 @@ namespace RasofiaGames.SaveLoadSystem
 
 			RefreshCachedData(storageCapsuleIDs);
 
-			foreach(var capsuleToStorage in _cachedStorageCapsules)
+			foreach (var capsuleToStorage in _cachedStorageCapsules)
 			{
-				if(storageCapsuleIDs == null || storageCapsuleIDs.Length == 0 || Array.IndexOf(storageCapsuleIDs, capsuleToStorage.Key.ID) >= 0)
+				if (storageCapsuleIDs == null || storageCapsuleIDs.Length == 0 || Array.IndexOf(storageCapsuleIDs, capsuleToStorage.Key.ID) >= 0)
 				{
 					List<KeyValuePair<Type, IStorageDictionaryEditor>> refStorages = new List<KeyValuePair<Type, IStorageDictionaryEditor>>();
-					if(capsuleToStorage.Value.TryGetValue(ROOT_SAVE_DATA_CAPSULE_REFERENCE_ID, out StorageDictionary capsuleStorage))
+					if (capsuleToStorage.Value.TryGetValue(ROOT_SAVE_DATA_CAPSULE_REFERENCE_ID, out StorageDictionary capsuleStorage))
 					{
-						foreach(var storageItem in capsuleToStorage.Value)
+						foreach (var storageItem in capsuleToStorage.Value)
 						{
-							if(storageItem.Key != ROOT_SAVE_DATA_CAPSULE_REFERENCE_ID)
+							if (storageItem.Key != ROOT_SAVE_DATA_CAPSULE_REFERENCE_ID)
 							{
 								Type referenceType = null;
 
-								if(storageItem.Value.LoadValue(STORAGE_REFERENCE_TYPE_ID_ULONG_KEY, out ulong classTypeId))
+								if (storageItem.Value.LoadValue(STORAGE_REFERENCE_TYPE_ID_ULONG_KEY, out ulong classTypeId))
 								{
 									referenceType = _storageObjectFactory.GetTypeForId(classTypeId);
 								}
-								else if(storageItem.Value.LoadValue(STORAGE_REFERENCE_TYPE_STRING_KEY, out string referenceTypeString))
+								else if (storageItem.Value.LoadValue(STORAGE_REFERENCE_TYPE_STRING_KEY, out string referenceTypeString))
 								{
 									referenceType = Type.GetType(referenceTypeString);
 								}
 
-								if(referenceType != null)
+								if (referenceType != null)
 								{
 									refStorages.Add(new KeyValuePair<Type, IStorageDictionaryEditor>(referenceType, storageItem.Value));
 								}
@@ -285,23 +300,23 @@ namespace RasofiaGames.SaveLoadSystem
 		public void Clear(bool removeSaveFiles, params string[] storageCapsuleIDs)
 		{
 			Dictionary<IStorageCapsule, Dictionary<string, StorageDictionary>> buffer = new Dictionary<IStorageCapsule, Dictionary<string, StorageDictionary>>();
-			foreach(var pair in _cachedStorageCapsules)
+			foreach (var pair in _cachedStorageCapsules)
 			{
-				if(storageCapsuleIDs == null || storageCapsuleIDs.Length == 0 || Array.IndexOf(storageCapsuleIDs, pair.Key.ID) >= 0)
+				if (storageCapsuleIDs == null || storageCapsuleIDs.Length == 0 || Array.IndexOf(storageCapsuleIDs, pair.Key.ID) >= 0)
 				{
 					buffer.Add(pair.Key, new Dictionary<string, StorageDictionary>());
 				}
 			}
 
-			if(!Directory.Exists(GetPathToStorage(StorageLocationPath)))
+			if (!Directory.Exists(GetPathToStorage(StorageLocationPath)))
 				return;
 
-			foreach(var pair in buffer)
+			foreach (var pair in buffer)
 			{
-				if(removeSaveFiles)
+				if (removeSaveFiles)
 				{
 					string pathToFile = GetPathToStorageCapsule(StorageLocationPath, pair.Key, true);
-					if(File.Exists(pathToFile))
+					if (File.Exists(pathToFile))
 					{
 						File.Delete(pathToFile);
 					}
@@ -312,25 +327,27 @@ namespace RasofiaGames.SaveLoadSystem
 				}
 			}
 
-			if(Directory.GetFiles(GetPathToStorage(StorageLocationPath)).Length == 0)
+			if (Directory.GetFiles(GetPathToStorage(StorageLocationPath)).Length == 0)
 				Directory.Delete(GetPathToStorage(StorageLocationPath));
 
-			if(!removeSaveFiles)
+			if (!removeSaveFiles)
+			{
 				Flush(storageCapsuleIDs);
+			}
 		}
 
 		public void Flush(params string[] storageCapsuleIDs)
 		{
-			foreach(var capsuleMapItem in _cachedStorageCapsules)
+			foreach (var capsuleMapItem in _cachedStorageCapsules)
 			{
-				if(storageCapsuleIDs != null && storageCapsuleIDs.Length > 0 && Array.IndexOf(storageCapsuleIDs, capsuleMapItem.Key.ID) < 0)
+				if (storageCapsuleIDs != null && storageCapsuleIDs.Length > 0 && Array.IndexOf(storageCapsuleIDs, capsuleMapItem.Key.ID) < 0)
 					continue;
 
-				if(capsuleMapItem.Value != null)
+				if (capsuleMapItem.Value != null)
 				{
 					List<SaveDataForReference> sectionsForReferences = new List<SaveDataForReference>();
 
-					foreach(var pair in capsuleMapItem.Value)
+					foreach (var pair in capsuleMapItem.Value)
 					{
 						sectionsForReferences.Add(new SaveDataForReference()
 						{
@@ -350,12 +367,12 @@ namespace RasofiaGames.SaveLoadSystem
 					try
 					{
 						string pathToStorage = GetPathToStorage(StorageLocationPath);
-						if(!Directory.Exists(pathToStorage))
+						if (!Directory.Exists(pathToStorage))
 						{
 							Directory.CreateDirectory(pathToStorage);
 						}
 
-						using(StreamWriter writer = new StreamWriter(GetPathToStorageCapsule(StorageLocationPath, capsuleMapItem.Key, true)))
+						using (StreamWriter writer = new StreamWriter(GetPathToStorageCapsule(StorageLocationPath, capsuleMapItem.Key, true)))
 						{
 							writer.Write(Encode(JsonUtility.ToJson(new SaveFileWrapper()
 							{
@@ -364,7 +381,7 @@ namespace RasofiaGames.SaveLoadSystem
 							})));
 						}
 					}
-					catch(Exception e)
+					catch (Exception e)
 					{
 						throw new Exception(string.Format("Could not save file {0}. Error: {1}", capsuleMapItem.Key, e.Message));
 					}
@@ -374,23 +391,23 @@ namespace RasofiaGames.SaveLoadSystem
 
 		public EditableRefValue GetEditableRefValue(string storageCapsuleID, string refID)
 		{
-			if(string.IsNullOrEmpty(refID))
+			if (string.IsNullOrEmpty(refID))
 			{
 				return default;
 			}
 
-			foreach(var item in _cachedStorageCapsules)
+			foreach (var item in _cachedStorageCapsules)
 			{
-				if(item.Key.ID == storageCapsuleID)
+				if (item.Key.ID == storageCapsuleID)
 				{
-					if(item.Value.TryGetValue(refID, out StorageDictionary storageForRef))
+					if (item.Value.TryGetValue(refID, out StorageDictionary storageForRef))
 					{
-						if(storageForRef.LoadValue(STORAGE_REFERENCE_TYPE_ID_ULONG_KEY, out ulong classTypeId))
+						if (storageForRef.LoadValue(STORAGE_REFERENCE_TYPE_ID_ULONG_KEY, out ulong classTypeId))
 						{
 							return new EditableRefValue(refID, _storageObjectFactory.GetTypeForId(classTypeId).AssemblyQualifiedName, storageForRef);
 						}
 
-						if(storageForRef.LoadValue(STORAGE_REFERENCE_TYPE_STRING_KEY, out string referenceTypeString))
+						if (storageForRef.LoadValue(STORAGE_REFERENCE_TYPE_STRING_KEY, out string referenceTypeString))
 						{
 							return new EditableRefValue(refID, referenceTypeString, storageForRef);
 						}
@@ -407,9 +424,9 @@ namespace RasofiaGames.SaveLoadSystem
 			IStorageCapsule capsuleToEdit = null;
 			EditableRefValue editableRefValue = default;
 
-			foreach(var item in _cachedStorageCapsules)
+			foreach (var item in _cachedStorageCapsules)
 			{
-				if(item.Key.ID == storageCapsuleID)
+				if (item.Key.ID == storageCapsuleID)
 				{
 					StorageDictionary storageForRef = new StorageDictionary(storageCapsuleID, this);
 					storageForRef.SaveValue(STORAGE_REFERENCE_TYPE_STRING_KEY, referenceType.AssemblyQualifiedName);
@@ -421,7 +438,7 @@ namespace RasofiaGames.SaveLoadSystem
 				}
 			}
 
-			if(editableRefValue.IsValidRefValue && capsuleToEdit != null)
+			if (editableRefValue.IsValidRefValue && capsuleToEdit != null)
 			{
 				_cachedStorageCapsules[capsuleToEdit].Add(editableRefValue.ReferenceID, editableRefValue.Storage as StorageDictionary);
 			}
@@ -432,15 +449,15 @@ namespace RasofiaGames.SaveLoadSystem
 		private void RefreshCachedData(string[] capsuleIDs)
 		{
 			List<IStorageCapsule> capsules = new List<IStorageCapsule>();
-			foreach(var pair in _cachedStorageCapsules)
+			foreach (var pair in _cachedStorageCapsules)
 			{
-				if(Array.IndexOf(capsuleIDs, pair.Key.ID) >= 0)
+				if (Array.IndexOf(capsuleIDs, pair.Key.ID) >= 0)
 				{
 					capsules.Add(pair.Key);
 				}
 			}
 
-			for(int i = 0; i < capsules.Count; i++)
+			for (int i = 0; i < capsules.Count; i++)
 			{
 				RefreshCachedData(capsules[i]);
 			}
@@ -452,9 +469,9 @@ namespace RasofiaGames.SaveLoadSystem
 
 			Dictionary<string, StorageDictionary> referencesSaveData = new Dictionary<string, StorageDictionary>();
 
-			if(saveDataForCapsule.ReferencesSaveData != null)
+			if (saveDataForCapsule.ReferencesSaveData != null)
 			{
-				for(int i = 0, c = saveDataForCapsule.ReferencesSaveData.Length; i < c; i++)
+				for (int i = 0, c = saveDataForCapsule.ReferencesSaveData.Length; i < c; i++)
 				{
 					SaveDataForReference refData = saveDataForCapsule.ReferencesSaveData[i];
 					referencesSaveData.Add(refData.ReferenceID, new StorageDictionary(capsuleToLoad.ID, this, SaveDataItem.ToDictionary(refData.ValueDataItems), SaveDataItem.ToObjectDictionary(refData.ReferenceDataItems)));
@@ -467,13 +484,13 @@ namespace RasofiaGames.SaveLoadSystem
 		private SaveData LoadFromDisk(IStorageCapsule capsuleToLoad)
 		{
 			string path = GetPathToStorageCapsule(StorageLocationPath, capsuleToLoad, true);
-			if(File.Exists(path))
+			if (File.Exists(path))
 			{
-				using(StreamReader reader = File.OpenText(path))
+				using (StreamReader reader = File.OpenText(path))
 				{
 					string jsonString = reader.ReadToEnd();
 					SaveFileWrapper saveFileWrapper = JsonUtility.FromJson<SaveFileWrapper>(Decode(jsonString));
-					if(ValidateEncryptionPassword(saveFileWrapper.SaveFilePassword, saveFileWrapper.SafeFileText))
+					if (ValidateEncryptionPassword(saveFileWrapper.SaveFilePassword, saveFileWrapper.SafeFileText))
 					{
 						return JsonUtility.FromJson<SaveData>(saveFileWrapper.SafeFileText);
 					}
@@ -492,7 +509,7 @@ namespace RasofiaGames.SaveLoadSystem
 
 		private string Encode(string text)
 		{
-			switch(EncodingOption)
+			switch (EncodingOption)
 			{
 				case EncodingType.None:
 					return text;
@@ -506,7 +523,7 @@ namespace RasofiaGames.SaveLoadSystem
 
 		private string Decode(string text)
 		{
-			switch(EncodingOption)
+			switch (EncodingOption)
 			{
 				case EncodingType.None:
 					return text;
@@ -525,7 +542,7 @@ namespace RasofiaGames.SaveLoadSystem
 			bytes.AddRange(Encoding.UTF8.GetBytes(fileText));
 
 			StringBuilder sb = new StringBuilder();
-			foreach(byte b in algorithm.ComputeHash(bytes.ToArray()))
+			foreach (byte b in algorithm.ComputeHash(bytes.ToArray()))
 				sb.Append(b.ToString("X2"));
 
 			return Encode(sb.ToString());
@@ -537,7 +554,7 @@ namespace RasofiaGames.SaveLoadSystem
 		}
 	}
 
-	public interface IStorageCapsule : ISaveableLoad
+	public interface IStorageCapsule : ISaveable
 	{
 		string ID
 		{

@@ -152,7 +152,7 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 				{
 					Type newSaveableType = newSaveableTypes[j];
 
-					if(HasLoaderConstructor(newSaveableType) || typeof(ISaveableLoad).IsAssignableFrom(newSaveableType))
+					if(typeof(ISaveable).IsAssignableFrom(newSaveableType))
 					{
 						typeToId.Add(newSaveableType, (idMilestone, newSaveableType.Assembly));
 						idMilestone++;
@@ -160,7 +160,7 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 					}
 					else
 					{
-						Debug.LogError($"Can't add {newSaveableType} for it is missing an {nameof(IStorageLoader)} constructor or {nameof(ISaveableLoad)} implementation");
+						Debug.LogError($"Can't add {newSaveableType} for it is missing an empty constructor");
 					}
 				}
 			}
@@ -200,15 +200,7 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 						lineStringBuilder.AppendLine($"{Consts.Tabs(5)} {Consts.COMMENT_ASSEMBLY_PREFIX} {switchItemPair.Value.assembly.FullName}:");
 						lineStringBuilder.AppendLine($"{Consts.Tabs(5)} {Consts.COMMENT_FULL_CLASS_NAME_PREFIX} {switchItemPair.Key.FullName}");
 
-						bool isConstructorLoader = HasLoaderConstructor(switchItemPair.Key);
-
-						lineStringBuilder.AppendLine($"{Consts.Tabs(5)} {(isConstructorLoader ? Consts.SAVEABLE_TYPE : Consts.SAVEABLE_WITHOUT_PARAM_TYPE)} {variableName} {Consts.ASSIGN_CHAR} {Consts.NEW} {Consts.TypeToClassPathString(switchItemPair.Key)}({(isConstructorLoader ? Consts.PARAM_LOADER : string.Empty)});");
-
-						if(!isConstructorLoader)
-						{
-							lineStringBuilder.AppendLine($"{Consts.Tabs(5)} {variableName}.{nameof(ISaveableLoad.Load)}({Consts.PARAM_LOADER});");
-						}
-
+						lineStringBuilder.AppendLine($"{Consts.Tabs(5)} {Consts.SAVEABLE_TYPE} {variableName} {Consts.ASSIGN_CHAR} {Consts.NEW} {Consts.TypeToClassPathString(switchItemPair.Key)}();");
 						lineStringBuilder.AppendLine($"{Consts.Tabs(5)} {Consts.RETURN} {variableName};");
 					}
 				}
@@ -248,15 +240,6 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 			return false;
 		}
 
-		private static bool HasLoaderConstructor(Type type)
-		{
-			return type.GetConstructors().Any(constructor =>
-			{
-				ParameterInfo[] paramInfos = constructor.GetParameters();
-				return paramInfos.Length == 1 && paramInfos[0].ParameterType == typeof(IStorageLoader);
-			});
-		}
-
 		// Must remain private
 		private static string GetTemplatePathBase([CallerFilePath] string sourceFilePath = "")
 		{
@@ -292,7 +275,6 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 			public const string CASE_END = ":";
 
 			public const string SAVEABLE_TYPE = nameof(ISaveable);
-			public const string SAVEABLE_WITHOUT_PARAM_TYPE = nameof(ISaveableLoad);
 
 			public const string PARAM_LOADER = "loader";
 
