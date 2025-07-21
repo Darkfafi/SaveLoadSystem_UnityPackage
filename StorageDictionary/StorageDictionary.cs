@@ -189,7 +189,7 @@ namespace RasofiaGames.SaveLoadSystem
 					idsCollection += ",";
 				}
 			}
-			_keyToReferenceID.Add(key, idsCollection);
+			_keyToReferenceID[key] = idsCollection;
 		}
 
 		public void RelocateValueRef(string currentKey, string newKey)
