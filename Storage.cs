@@ -105,18 +105,15 @@ namespace RasofiaGames.SaveLoadSystem
 							storage = new StorageDictionary(capsuleToStorage.Key.ID, this);
 						}
 
-						StorageChannel channel = null;
-
 						if (id == ROOT_SAVE_DATA_CAPSULE_REFERENCE_ID)
 						{
-							channel = capsuleToStorage.Key.GetStorageChannel();
-							channel.Internal_Load(storage);
+							capsuleToStorage.Key.GetStorageChannel().Internal_Load(storage);
 							_allLoadedReferences.Add(capsuleToStorage.Key);
 						}
 						else if (storage.LoadValue(STORAGE_REFERENCE_TYPE_ID_ULONG_KEY, out ulong classTypeId))
 						{
 							ISaveable referenceInstance = _storageObjectFactory.CreateSaveableObject(classTypeId);
-							channel.Internal_Load(storage);
+							referenceInstance.GetStorageChannel().Internal_Load(storage);
 							ActiveRefHandler.SetReferenceReady(referenceInstance, id);
 							_allLoadedReferences.Add(referenceInstance);
 						}
@@ -124,7 +121,7 @@ namespace RasofiaGames.SaveLoadSystem
 						{
 							Type referenceType = Type.GetType(classTypeFullName);
 							ISaveable referenceInstance = Activator.CreateInstance(referenceType) as ISaveable;
-							channel.Internal_Load(storage);
+							referenceInstance.GetStorageChannel().Internal_Load(storage);
 							ActiveRefHandler.SetReferenceReady(referenceInstance, id);
 							_allLoadedReferences.Add(referenceInstance);
 						}
