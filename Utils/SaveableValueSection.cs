@@ -33,6 +33,11 @@ namespace RasofiaGames.SaveLoadSystem.Internal
 			return PrimitiveToValueParserUtility.FromJSON(ValueString, specifiedType);
 		}
 
+		public T GetValue<T>()
+		{
+			return (T)PrimitiveToValueParserUtility.FromJSON(ValueString, typeof(T));
+		}
+
 		public object GetValue()
 		{
 			return GetValue(GetValueType());
