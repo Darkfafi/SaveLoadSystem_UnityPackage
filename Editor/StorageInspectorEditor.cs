@@ -81,6 +81,12 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 			return loadedItems.ToArray();
 		}
 
+		private static void ClearCapsuleItems(string storagePath, Storage.EncodingType encodingType, IStorageCapsule[] storageCapsules)
+		{
+			Storage storage = new Storage(storagePath, encodingType, storageCapsules);
+			storage.Clear(removeSaveFiles: true, storageCapsules.Select(x => x.ID).ToArray());;
+		}
+
 		private static IStorageCapsule[] GetStorageCapsuleInstances()
 		{
 			List<IStorageCapsule> storageCapsules = new List<IStorageCapsule>();
@@ -151,11 +157,19 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 				LoadStorage(_pathInputValue, _encodingTypeInputValue);
 			}
 
-			if(_currentlyViewingStorage != null)
+			if (_currentlyViewingStorage != null)
 			{
-				if(GUILayout.Button("Refresh"))
+				if (GUILayout.Button("Refresh"))
 				{
 					LoadStorage(_currentlyViewingStorage.StorageLocationPath, _currentlyViewingStorage.EncodingOption);
+				}
+			}
+			
+			if(GUILayout.Button("Clear Storage"))
+			{
+				if(EditorUtility.DisplayDialog("Clear Storage", "Are you sure you want to delete the storage capsule files created during gameplay?", "Yes", "No"))
+				{
+					ClearStorage(_pathInputValue, _encodingTypeInputValue);		
 				}
 			}
 
@@ -184,6 +198,11 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 			IStorageCapsule[] storageCapsuleInstances = GetStorageCapsuleInstances();
 			_currentlyViewingStorage = new Storage(path, encodingType, storageCapsuleInstances);
 			_capsuleUIItems.AddRange(LoadCapsuleItems(path, encodingType, storageCapsuleInstances));
+		}
+
+		public void ClearStorage(string path, Storage.EncodingType encodingType)
+		{
+			ClearCapsuleItems(path, encodingType, GetStorageCapsuleInstances());
 		}
 
 		#region UI Items

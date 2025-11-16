@@ -325,7 +325,17 @@ namespace RasofiaGames.SaveLoadSystem
 			}
 
 			if (Directory.GetFiles(GetPathToStorage(StorageLocationPath)).Length == 0)
-				Directory.Delete(GetPathToStorage(StorageLocationPath));
+			{
+				try
+
+				{
+					Directory.Delete(GetPathToStorage(StorageLocationPath));
+				}
+				catch (Exception e)
+				{
+					Debug.LogWarning("Did not delete folder. Message: " + e.Message);
+				}
+			}
 
 			if (!removeSaveFiles)
 			{
