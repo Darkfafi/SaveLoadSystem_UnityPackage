@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace RasofiaGames.SaveLoadSystem.Internal
 {
-	[SerializeField]
+	[Serializable]
 	public struct SaveFileWrapper
 	{
 		public string SaveFilePassword;
