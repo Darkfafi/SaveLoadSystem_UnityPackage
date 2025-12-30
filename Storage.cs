@@ -491,27 +491,62 @@ namespace RasofiaGames.SaveLoadSystem
 		private SaveData LoadFromDisk(IStorageCapsule capsuleToLoad)
 		{
 			string path = GetPathToStorageCapsule(StorageLocationPath, capsuleToLoad, true);
-			if (File.Exists(path))
+
+			try
 			{
-				using (StreamReader reader = File.OpenText(path))
+				if (File.Exists(path))
 				{
-					string jsonString = reader.ReadToEnd();
-					SaveFileWrapper saveFileWrapper = JsonUtility.FromJson<SaveFileWrapper>(Decode(jsonString));
-					if (ValidateEncryptionPassword(saveFileWrapper.SaveFilePassword, saveFileWrapper.SafeFileText))
+					using (StreamReader reader = File.OpenText(path))
 					{
-						return JsonUtility.FromJson<SaveData>(saveFileWrapper.SafeFileText);
-					}
-					else
-					{
-						Debug.Log("SAVE FILE IS CORRUPT, NEW SAVE FILE CREATED!");
+						string jsonString = reader.ReadToEnd();
+						SaveFileWrapper saveFileWrapper = JsonUtility.FromJson<SaveFileWrapper>(Decode(jsonString));
+
+						if (ValidateEncryptionPassword(saveFileWrapper.SaveFilePassword, saveFileWrapper.SafeFileText))
+						{
+							return JsonUtility.FromJson<SaveData>(saveFileWrapper.SafeFileText);
+						}
+						else
+						{
+							Debug.LogError("SAVE FILE IS INVALID. Backing up file.");
+							BackupCorruptedFile(path);
+						}
 					}
 				}
+			}
+			catch (Exception e)
+			{
+				Debug.LogError($"Loading of existing Save File Failed due to exception. Backing up file. Exception: {e.Message}");
+				BackupCorruptedFile(path);
 			}
 
 			return new SaveData()
 			{
 				CapsuleID = capsuleToLoad.ID,
 			};
+
+			void BackupCorruptedFile(string originalPath)
+			{
+				if (File.Exists(originalPath))
+				{
+					string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+					string directory = Path.GetDirectoryName(originalPath);
+					string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(originalPath);
+					string extension = Path.GetExtension(originalPath);
+
+					string backupFileName = $"{fileNameWithoutExtension}_CORRUPT_{timestamp}{extension}";
+					string backupPath = Path.Combine(directory, backupFileName);
+
+					try
+					{
+						File.Move(originalPath, backupPath);
+						Debug.Log($"Corrupted save file backed up to: {backupPath}");
+					}
+					catch (Exception ex)
+					{
+						Debug.LogError($"Failed to backup corrupted file at {originalPath}: {ex.Message}");
+					}
+				}
+			}
 		}
 
 		private string Encode(string text)
