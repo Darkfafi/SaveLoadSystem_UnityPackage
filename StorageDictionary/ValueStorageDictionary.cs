@@ -284,7 +284,7 @@ namespace RasofiaGames.SaveLoadSystem
 
 			if(v.GetValueType() == null)
 			{
-				UnityEngine.Debug.LogError($"No Type found for {key}'s value {value.GetType().Name}. This means the type was removed or renamed. Please migrate this change to the correct type!");
+				UnityEngine.Debug.LogError($"No Type found for {key}'s value {value.GetType().Name}. This means the type {v.ValueType} was removed or renamed. Please migrate this change to the correct type!");
 				return false;
 			}
 
