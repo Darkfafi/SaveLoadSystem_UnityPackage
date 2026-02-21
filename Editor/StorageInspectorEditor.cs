@@ -18,7 +18,7 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 			Warning = 1 << 1,
 			Error = 1 << 2,
 		}
-		
+
 		private const string TYPE_NOT_FOUND_INFO_MESSAGE = "Type not found in project";
 		private const string EXPECTED_TYPE_INFO_MESSAGE_F = "Expected type {0} but found type {1}";
 		private const string KEY_VALIDATION_CORRUPT_INFO_MESSAGE = "Key Validation is corrupt (Check the `StorageKeyAttribute` usage)";
@@ -242,12 +242,12 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 			public void SetParent(BaseItem parent) => Parent = parent;
 			public string GetFullPath() => Parent == null || Parent is RootItem ? Key : $"{Parent.GetFullPath()}/{Key}";
 			public virtual string GetSearchableContent() => "";
+			public virtual string GetCopyableValue() => null;
 
 			public virtual void DrawRow(Action<BaseItem> onNavigate)
 			{
 				EditorGUILayout.BeginHorizontal();
 
-				// Draw Status Icon with Tooltip
 				if (State != CorruptionState.None)
 				{
 					string iconStr = State == CorruptionState.Error ? "[!]" : "[?]";
@@ -268,7 +268,25 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 				string extra = GetExtraInfo();
 				if (!string.IsNullOrEmpty(extra)) label += $" <color=#888888>{extra}</color>";
 
-				if (GUILayout.Button(label, Styles.RowButton)) if (IsContainer) onNavigate(this);
+				if (GUILayout.Button(label, Styles.RowButton))
+				{
+					if (IsContainer)
+					{
+						onNavigate(this);
+					}
+					else
+					{
+						string copyVal = GetCopyableValue();
+						if (copyVal != null)
+						{
+							EditorGUIUtility.systemCopyBuffer = copyVal;
+							if (_currentlyOpenStorageInspector != null)
+							{
+								_currentlyOpenStorageInspector.ShowNotification(new GUIContent($"Copied: {copyVal}"));
+							}
+						}
+					}
+				}
 
 				EditorGUILayout.EndHorizontal();
 			}
@@ -293,7 +311,6 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 		{
 			public StorageItem(string key, BaseItem parent, IStorageDictionaryEditor storage, Dictionary<string, StorageKeyEntry> keys) : base(key, parent)
 			{
-				// Track which keys we actually find to detect missing ones
 				HashSet<string> foundKeys = new HashSet<string>();
 
 				foreach (var k in storage.GetValueStorageKeys())
@@ -314,7 +331,6 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 					if (item.State > State) { State = item.State; CorruptionReason = item.CorruptionReason; }
 				}
 
-				// Check for Missing Keys (Restored Logic)
 				var missing = keys.Values.Where(x => !x.IsOptional && !foundKeys.Contains(x.StorageKey)).ToList();
 				if (missing.Count > 0 && State != CorruptionState.Error)
 				{
@@ -333,12 +349,10 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 			{
 				_valStr = s.ValueString;
 
-				// Apply Exact Validation Logic
 				GetCorruptStateWithInfo(e, s, out CorruptionState state, out string info);
 				State = state;
 				CorruptionReason = info;
 
-				// Child Structure for Navigation
 				Type t = s.GetSafeValueType();
 				if (t == typeof(SaveableDict))
 					foreach (var item in ((SaveableDict)s.GetValue()).Items) Children.Add(new DictEntryItem(item, this));
@@ -357,7 +371,6 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 				Type safeType = valueSection.GetSafeValueType();
 				if (safeType == null || keyEntry.GetExpectedType() == null) { state = CorruptionState.Error; info = TYPE_NOT_FOUND_INFO_MESSAGE; return; }
 
-				// Dict Logic
 				if (safeType == typeof(SaveableDict))
 				{
 					var dictVal = (SaveableDict)valueSection.GetValue();
@@ -376,7 +389,6 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 					state = CorruptionState.None; info = ""; return;
 				}
 
-				// Array Logic
 				if (safeType == typeof(SaveableArray))
 				{
 					var arrVal = (SaveableArray)valueSection.GetValue();
@@ -394,12 +406,12 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 					state = CorruptionState.None; info = ""; return;
 				}
 
-				// Standard Value Logic
 				state = keyEntry.IsOfExpectedType(safeType) ? CorruptionState.None : CorruptionState.Error;
 				info = state == CorruptionState.None ? "" : string.Format(EXPECTED_TYPE_INFO_MESSAGE_F, keyEntry.GetExpectedType().Name, safeType.Name);
 			}
 
 			public override string GetSearchableContent() => _valStr;
+			public override string GetCopyableValue() => Children.Count > 0 ? null : _valStr;
 			protected override string GetExtraInfo() => Children.Count > 0 ? $"[{Children.Count}]" : $"= {_valStr}";
 		}
 
@@ -409,7 +421,6 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 			{
 				foreach (var rv in r) Children.Add(new RefItem(e, this, rv));
 
-				// Fix from User
 				if (Children.Count > 0)
 				{
 					State = Children.Max(x => x.State);
@@ -445,6 +456,7 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 			private string _v;
 			public DictEntryItem(DictItem i, BaseItem p) : base(i.KeySection.ValueString, p) => _v = i.ValueSection.ValueString;
 			public override string GetSearchableContent() => _v;
+			public override string GetCopyableValue() => _v;
 			protected override string GetExtraInfo() => $"= {_v}";
 		}
 
@@ -453,6 +465,7 @@ namespace RasofiaGames.SaveLoadSystem.Internal.Utils
 			private string _v;
 			public ArrayEntryItem(int i, SaveableValueSection s, BaseItem p) : base($"[{i}]", p) => _v = s.ValueString;
 			public override string GetSearchableContent() => _v;
+			public override string GetCopyableValue() => _v;
 			protected override string GetExtraInfo() => $"= {_v}";
 		}
 
