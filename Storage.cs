@@ -428,6 +428,11 @@ namespace RasofiaGames.SaveLoadSystem
 
 		public EditableRefValue RegisterNewRefInCapsule(string storageCapsuleID, Type referenceType)
 		{
+			return RegisterNewRefInCapsule(storageCapsuleID, referenceType.AssemblyQualifiedName, _storageObjectFactory.GetIdForSaveable(referenceType));
+		}
+
+		public EditableRefValue RegisterNewRefInCapsule(string storageCapsuleID, string referenceTypeAssemblyQualifiedName, ulong refTypeId)
+		{
 			IStorageCapsule capsuleToEdit = null;
 			EditableRefValue editableRefValue = default;
 
@@ -436,10 +441,10 @@ namespace RasofiaGames.SaveLoadSystem
 				if (item.Key.ID == storageCapsuleID)
 				{
 					StorageDictionary storageForRef = new StorageDictionary(storageCapsuleID, this);
-					storageForRef.SaveValue(STORAGE_REFERENCE_TYPE_STRING_KEY, referenceType.AssemblyQualifiedName);
-					storageForRef.SaveValue(STORAGE_REFERENCE_TYPE_ID_ULONG_KEY, _storageObjectFactory.GetIdForSaveable(referenceType));
+					storageForRef.SaveValue(STORAGE_REFERENCE_TYPE_STRING_KEY, referenceTypeAssemblyQualifiedName);
+					storageForRef.SaveValue(STORAGE_REFERENCE_TYPE_ID_ULONG_KEY, refTypeId);
 					string randomOnFlyID = Guid.NewGuid().ToString("N");
-					editableRefValue = new EditableRefValue(randomOnFlyID, referenceType.AssemblyQualifiedName, storageForRef);
+					editableRefValue = new EditableRefValue(randomOnFlyID, referenceTypeAssemblyQualifiedName, storageForRef);
 					capsuleToEdit = item.Key;
 					break;
 				}
