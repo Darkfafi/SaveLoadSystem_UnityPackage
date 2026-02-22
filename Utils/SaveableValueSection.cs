@@ -15,7 +15,7 @@ namespace RasofiaGames.SaveLoadSystem.Internal
 			{
 				specifiedType = value.GetType();
 			}
-			
+
 			ValueString = PrimitiveToValueParserUtility.ToJSON(value, specifiedType);
 			ValueType = specifiedType.AssemblyQualifiedName;
 		}
@@ -31,6 +31,28 @@ namespace RasofiaGames.SaveLoadSystem.Internal
 		public object GetValue(Type specifiedType)
 		{
 			return PrimitiveToValueParserUtility.FromJSON(ValueString, specifiedType);
+		}
+
+		public bool TryGetValue<T>(out T value)
+		{
+			if (!IsValid)
+			{
+				value = default;
+				return false;
+			}
+
+			value = GetValue<T>();
+			return true;
+		}
+
+		public T GetValueOrDefault<T>()
+		{
+			if (!IsValid)
+			{
+				return default;
+			}
+
+			return GetValue<T>();
 		}
 
 		public T GetValue<T>()
